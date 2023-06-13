@@ -43,8 +43,35 @@ func init() {
 	}
 }
 
+func constructDefaultHTTPRouters(cfg *config.Config) ([]*routinghelpers.ParallelRouter, error) {
+	var routers []*routinghelpers.ParallelRouter
+	// Append HTTP routers for additional speed
+	for _, endpoint := range defaultHTTPRouters {
+		httpRouter, err := irouting.ConstructHTTPRouter(endpoint, cfg.Identity.PeerID, httpAddrsFromConfig(cfg.Addresses), cfg.Identity.PrivKey)
+		if err != nil {
+			return nil, err
+		}
+
+		r := &irouting.Composer{
+			GetValueRouter:      routinghelpers.Null{},
+			PutValueRouter:      routinghelpers.Null{},
+			ProvideRouter:       routinghelpers.Null{}, // modify this when indexers supports provide
+			FindPeersRouter:     routinghelpers.Null{},
+			FindProvidersRouter: httpRouter,
+		}
+
+		routers = append(routers, &routinghelpers.ParallelRouter{
+			Router:       r,
+			IgnoreError:  true,             // https://github.com/ipfs/kubo/pull/9475#discussion_r1042507387
+			Timeout:      15 * time.Second, // 5x server value from https://github.com/ipfs/kubo/pull/9475#discussion_r1042428529
+			ExecuteAfter: 0,
+		})
+	}
+	return routers, nil
+}
+
 // ConstructDefaultRouting returns routers used when Routing.Type is unset or set to "auto"
-func ConstructDefaultRouting(peerID string, addrs []string, privKey string, routingOpt RoutingOption) RoutingOption {
+func ConstructDefaultRouting(cfg *config.Config, routingOpt RoutingOption) RoutingOption {
 	return func(args RoutingOptionArgs) (routing.Routing, error) {
 		// Defined routers will be queried in parallel (optimizing for response speed)
 		// Different trade-offs can be made by setting Routing.Type = "custom" with own Routing.Routers
@@ -60,28 +87,12 @@ func ConstructDefaultRouting(peerID string, addrs []string, privKey string, rout
 			ExecuteAfter: 0,
 		})
 
-		// Append HTTP routers for additional speed
-		for _, endpoint := range defaultHTTPRouters {
-			httpRouter, err := irouting.ConstructHTTPRouter(endpoint, peerID, addrs, privKey)
-			if err != nil {
-				return nil, err
-			}
-
-			r := &irouting.Composer{
-				GetValueRouter:      routinghelpers.Null{},
-				PutValueRouter:      routinghelpers.Null{},
-				ProvideRouter:       routinghelpers.Null{}, // modify this when indexers supports provide
-				FindPeersRouter:     routinghelpers.Null{},
-				FindProvidersRouter: httpRouter,
-			}
-
-			routers = append(routers, &routinghelpers.ParallelRouter{
-				Router:       r,
-				IgnoreError:  true,             // https://github.com/ipfs/kubo/pull/9475#discussion_r1042507387
-				Timeout:      15 * time.Second, // 5x server value from https://github.com/ipfs/kubo/pull/9475#discussion_r1042428529
-				ExecuteAfter: 0,
-			})
+		httpRouters, err := constructDefaultHTTPRouters(cfg)
+		if err != nil {
+			return nil, err
 		}
+
+		routers = append(routers, httpRouters...)
 
 		routing := routinghelpers.NewComposableParallel(routers)
 		return routing, nil
@@ -112,7 +123,7 @@ func constructDHTRouting(mode dht.ModeOpt) RoutingOption {
 }
 
 // ConstructDelegatedRouting is used when Routing.Type = "custom"
-func ConstructDelegatedRouting(routers config.Routers, methods config.Methods, peerID string, addrs []string, privKey string) RoutingOption {
+func ConstructDelegatedRouting(routers config.Routers, methods config.Methods, peerID string, addrs config.Addresses, privKey string) RoutingOption {
 	return func(args RoutingOptionArgs) (routing.Routing, error) {
 		return irouting.Parse(routers, methods,
 			&irouting.ExtraDHTParams{
@@ -124,7 +135,7 @@ func ConstructDelegatedRouting(routers config.Routers, methods config.Methods, p
 			},
 			&irouting.ExtraHTTPParams{
 				PeerID:     peerID,
-				Addrs:      addrs,
+				Addrs:      httpAddrsFromConfig(addrs),
 				PrivKeyB64: privKey,
 			})
 	}
@@ -140,3 +151,31 @@ var (
 	DHTServerOption               = constructDHTRouting(dht.ModeServer)
 	NilRouterOption               = constructNilRouting
 )
+
+// httpAddrsFromConfig creates a list of addresses from the provided configuration to be used by HTTP delegated routers.
+func httpAddrsFromConfig(cfgAddrs config.Addresses) []string {
+	// Swarm addrs are announced by default
+	addrs := cfgAddrs.Swarm
+	// if Announce addrs are specified - override Swarm
+	if len(cfgAddrs.Announce) > 0 {
+		addrs = cfgAddrs.Announce
+	} else if len(cfgAddrs.NoAnnounce) > 0 {
+		// if Announce adds are not specified - filter Swarm addrs with NoAnnounce list
+		maddrs := map[string]struct{}{}
+		for _, addr := range addrs {
+			maddrs[addr] = struct{}{}
+		}
+		for _, addr := range cfgAddrs.NoAnnounce {
+			delete(maddrs, addr)
+		}
+		addrs = make([]string, 0, len(maddrs))
+		for k := range maddrs {
+			addrs = append(addrs, k)
+		}
+	}
+	// append AppendAnnounce addrs to the result list
+	if len(cfgAddrs.AppendAnnounce) > 0 {
+		addrs = append(addrs, cfgAddrs.AppendAnnounce...)
+	}
+	return addrs
+}

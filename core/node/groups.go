@@ -155,7 +155,7 @@ func LibP2P(bcfg *BuildCfg, cfg *config.Config, userResourceOverrides rcmgr.Part
 		fx.Provide(libp2p.RelayTransport(enableRelayTransport)),
 		fx.Provide(libp2p.RelayService(enableRelayService, cfg.Swarm.RelayService)),
 		fx.Provide(libp2p.Transports(cfg.Swarm.Transports)),
-		fx.Invoke(libp2p.StartListening(cfg.Addresses.Swarm)),
+		fx.Provide(libp2p.ListenOn(cfg.Addresses.Swarm)),
 		fx.Invoke(libp2p.SetupDiscovery(cfg.Discovery.MDNS.Enabled)),
 		fx.Provide(libp2p.ForceReachability(cfg.Internal.Libp2pForceReachability)),
 		fx.Provide(libp2p.HolePunching(cfg.Swarm.EnableHolePunching, enableRelayClient)),
@@ -165,7 +165,7 @@ func LibP2P(bcfg *BuildCfg, cfg *config.Config, userResourceOverrides rcmgr.Part
 		fx.Provide(libp2p.Routing),
 		fx.Provide(libp2p.ContentRouting),
 
-		fx.Provide(libp2p.BaseRouting(cfg.Experimental.AcceleratedDHTClient)),
+		fx.Provide(libp2p.BaseRouting(cfg)),
 		maybeProvide(libp2p.PubsubRouter, bcfg.getOpt("ipnsps")),
 
 		maybeProvide(libp2p.BandwidthCounter, !cfg.Swarm.DisableBandwidthMetrics),
@@ -304,9 +304,9 @@ func Online(bcfg *BuildCfg, cfg *config.Config, userResourceOverrides rcmgr.Part
 		LibP2P(bcfg, cfg, userResourceOverrides),
 		OnlineProviders(
 			cfg.Experimental.StrategicProviding,
-			cfg.Experimental.AcceleratedDHTClient,
 			cfg.Reprovider.Strategy.WithDefault(config.DefaultReproviderStrategy),
 			cfg.Reprovider.Interval.WithDefault(config.DefaultReproviderInterval),
+			cfg.Routing.AcceleratedDHTClient,
 		),
 	)
 }
@@ -320,12 +320,7 @@ func Offline(cfg *config.Config) fx.Option {
 		fx.Provide(libp2p.Routing),
 		fx.Provide(libp2p.ContentRouting),
 		fx.Provide(libp2p.OfflineRouting),
-		OfflineProviders(
-			cfg.Experimental.StrategicProviding,
-			cfg.Experimental.AcceleratedDHTClient,
-			cfg.Reprovider.Strategy.WithDefault(config.DefaultReproviderStrategy),
-			cfg.Reprovider.Interval.WithDefault(config.DefaultReproviderInterval),
-		),
+		OfflineProviders(),
 	)
 }
 

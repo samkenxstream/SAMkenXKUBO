@@ -413,19 +413,9 @@ func daemonFunc(req *cmds.Request, re cmds.ResponseEmitter, env cmds.Environment
 	case routingOptionSupernodeKwd:
 		return errors.New("supernode routing was never fully implemented and has been removed")
 	case routingOptionDefaultKwd, routingOptionAutoKwd:
-		ncfg.Routing = libp2p.ConstructDefaultRouting(
-			cfg.Identity.PeerID,
-			cfg.Addresses.Swarm,
-			cfg.Identity.PrivKey,
-			libp2p.DHTOption,
-		)
+		ncfg.Routing = libp2p.ConstructDefaultRouting(cfg, libp2p.DHTOption)
 	case routingOptionAutoClientKwd:
-		ncfg.Routing = libp2p.ConstructDefaultRouting(
-			cfg.Identity.PeerID,
-			cfg.Addresses.Swarm,
-			cfg.Identity.PrivKey,
-			libp2p.DHTClientOption,
-		)
+		ncfg.Routing = libp2p.ConstructDefaultRouting(cfg, libp2p.DHTClientOption)
 	case routingOptionDHTClientKwd:
 		ncfg.Routing = libp2p.DHTClientOption
 	case routingOptionDHTKwd:
@@ -435,11 +425,14 @@ func daemonFunc(req *cmds.Request, re cmds.ResponseEmitter, env cmds.Environment
 	case routingOptionNoneKwd:
 		ncfg.Routing = libp2p.NilRouterOption
 	case routingOptionCustomKwd:
+		if cfg.Routing.AcceleratedDHTClient {
+			return fmt.Errorf("Routing.AcceleratedDHTClient option is set even tho Routing.Type is custom, using custom .AcceleratedDHTClient needs to be set on DHT routers individually")
+		}
 		ncfg.Routing = libp2p.ConstructDelegatedRouting(
 			cfg.Routing.Routers,
 			cfg.Routing.Methods,
 			cfg.Identity.PeerID,
-			cfg.Addresses.Swarm,
+			cfg.Addresses,
 			cfg.Identity.PrivKey,
 		)
 	default:
