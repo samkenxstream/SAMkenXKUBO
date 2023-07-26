@@ -15,7 +15,7 @@ require (
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/ipfs/boxo v0.10.2-0.20230629140307-fdad9f921191
+	github.com/ipfs/boxo v0.10.3-0.20230724084731-f6b448b4263a
 	github.com/ipfs/go-block-format v0.1.2
 	github.com/ipfs/go-cid v0.4.1
 	github.com/ipfs/go-cidutil v0.1.0
@@ -52,7 +52,7 @@ require (
 	github.com/libp2p/go-libp2p-pubsub v0.9.3
 	github.com/libp2p/go-libp2p-pubsub-router v0.6.0
 	github.com/libp2p/go-libp2p-record v0.2.0
-	github.com/libp2p/go-libp2p-routing-helpers v0.7.0
+	github.com/libp2p/go-libp2p-routing-helpers v0.7.1
 	github.com/libp2p/go-libp2p-testing v0.12.0
 	github.com/libp2p/go-socket-activation v0.1.0
 	github.com/mitchellh/go-homedir v1.1.0
@@ -91,6 +91,7 @@ require (
 
 require (
 	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
+	github.com/Jorropo/jsync v1.0.1 // indirect
 	github.com/Kubuxu/go-os-helper v0.0.1 // indirect
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137 // indirect
 	github.com/alexbrainman/goissue34681 v0.0.0-20191006012335-3fc7a47baff5 // indirect
